@@ -10,67 +10,56 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class bitset {
-    private List<Object> multiplicity = new ArrayList<Object>();
+    private List<Boolean> bits = new ArrayList<Boolean>();
+    private final int bitsetSize;
 
-    private bitset(Object... objects) {
-        for (Object obj : objects) {
-            if (!contains(obj)) {
-                multiplicity.add(obj);
-            }
-        }
-    }
-
-    public Object getElement(int index) {
-        return multiplicity.get(index);
-    }
-
-    public List<Object> getMultiplicity() {
-        return multiplicity;
-    }
-
-    public void addElement(Object element) {
-        if (!contains(element)) {
-            multiplicity.add(element);
-        }
-    }
-
-    public void addMultiplicity(Object... elements) {
-        for (Object obj : elements) {
-            if (!contains(obj)) {
-                multiplicity.add(obj);
-            }
-        }
-    }
-
-    public void deleteElement(Object element) {
-        List<Object> newMultiplicity = new ArrayList<Object>();
-        for (Object obj : multiplicity) {
-            if (!element.equals(obj)) {
-                newMultiplicity.add(obj);
-            }
-        }
-        multiplicity = newMultiplicity;
-    }
-
-    public void deleteMultiplicity(Object... elements) {
-        List<Object> newMultiplicity = new ArrayList<Object>();
-        for (Object obj : multiplicity) {
-            boolean isContain = false;
-            for (Object element : elements) {
-                if (element.equals(obj)) {
-                    isContain = true;
+    private bitset(int size, List<Integer> elements) {
+        bitsetSize = size;
+        for (int i = 0; i < bitsetSize; i++) {
+            boolean isInNumbers = false;
+            for (int number : elements) {
+                if (i == number) {
+                    bits.add(true);
+                    isInNumbers = true;
                 }
             }
-            if (!isContain) {
-                newMultiplicity.add(obj);
+            if (!isInNumbers) {
+                bits.add(false);
             }
         }
-        multiplicity = newMultiplicity;
     }
 
-    public boolean contains(Object element) {
-        for (Object obj : multiplicity) {
-            if (element.equals(obj)) {
+    public int getSize() {
+        return bitsetSize;
+    }
+
+    public void addElement(int element) {
+        if (element < bitsetSize) {
+            bits.set(element, true);
+        }
+    }
+
+    public void addMultiplicity(List<Integer> elements) {
+        for (int element : elements) {
+            addElement(element);
+        }
+    }
+
+    public void deleteElement(int element) {
+        if (element < bitsetSize) {
+            bits.set(element, false);
+        }
+    }
+
+    public void deleteMultiplicity(List<Integer> elements) {
+        for (int element : elements) {
+            deleteElement(element);
+        }
+    }
+
+    public boolean contains(int element) {
+        if (element < bitsetSize) {
+            if (bits.get(element)) {
                 return true;
             }
         }
@@ -78,28 +67,39 @@ public class bitset {
     }
 
     public bitset crossing(bitset other) {
-        bitset crossingBitset = new bitset();
-        for (Object element : other.getMultiplicity()) {
-            if (this.contains(element)) {
-                crossingBitset.addElement(element);
+        List<Integer> crossingNumbers = new ArrayList<Integer>();
+        for (int i = 0; i < bitsetSize; i++) {
+            if (this.contains(i) && other.contains(i)) {
+                crossingNumbers.add(i);
             }
         }
-        return crossingBitset;
+        return new bitset(crossingNumbers.get(crossingNumbers.size() - 1), crossingNumbers);
     }
 
     public bitset union(bitset other) {
-        bitset unionBitsets = new bitset(multiplicity);
-        unionBitsets.addMultiplicity(other.getMultiplicity());
-        return unionBitsets;
-    }
-
-    public bitset addition(bitset other) {
-        bitset additionBitset = new bitset();
-        for (Object obj : other.getMultiplicity()) {
-            if (!contains(obj)) {
-                additionBitset.addElement(obj);
+        List<Integer> crossingNumbers = new ArrayList<Integer>();
+        int maxBitsetSize;
+        if (bitsetSize > other.getSize()) {
+            maxBitsetSize = bitsetSize;
+        } else {
+            maxBitsetSize = other.getSize();
+        }
+        for (int i = 0; i < maxBitsetSize; i++) {
+            if (this.contains(i) || other.contains(i)) {
+                crossingNumbers.add(i);
             }
         }
-        return additionBitset;
+        return new bitset(crossingNumbers.get(crossingNumbers.size() - 1), crossingNumbers);
+    }
+
+    public bitset addition() {
+        List<Integer> crossingNumbers = new ArrayList<Integer>();
+        for (int i = 0; i < bitsetSize; i++) {
+            if (!bits.get(i)) {
+                crossingNumbers.add(i);
+            }
+        }
+        return new bitset(crossingNumbers.get(crossingNumbers.size() - 1), crossingNumbers);
+
     }
 }
