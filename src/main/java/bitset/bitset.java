@@ -13,14 +13,16 @@ public class bitset {
     private List<Boolean> bits = new ArrayList<Boolean>();
     private final int bitsetSize;
 
-    private bitset(int size, List<Integer> elements) {
+    bitset(int size, List<Integer> elements) {
         bitsetSize = size;
         for (int i = 0; i < bitsetSize; i++) {
             boolean isInNumbers = false;
-            for (int number : elements) {
-                if (i == number) {
-                    bits.add(true);
-                    isInNumbers = true;
+            if (!elements.isEmpty()) {
+                for (int number : elements) {
+                    if (i == number) {
+                        bits.add(true);
+                        isInNumbers = true;
+                    }
                 }
             }
             if (!isInNumbers) {
@@ -73,11 +75,11 @@ public class bitset {
                 crossingNumbers.add(i);
             }
         }
-        return new bitset(crossingNumbers.get(crossingNumbers.size() - 1), crossingNumbers);
+        return new bitset(bitsetSize, crossingNumbers);
     }
 
     public bitset union(bitset other) {
-        List<Integer> crossingNumbers = new ArrayList<Integer>();
+        List<Integer> unionNumbers = new ArrayList<Integer>();
         int maxBitsetSize;
         if (bitsetSize > other.getSize()) {
             maxBitsetSize = bitsetSize;
@@ -86,20 +88,31 @@ public class bitset {
         }
         for (int i = 0; i < maxBitsetSize; i++) {
             if (this.contains(i) || other.contains(i)) {
-                crossingNumbers.add(i);
+                unionNumbers.add(i);
             }
         }
-        return new bitset(crossingNumbers.get(crossingNumbers.size() - 1), crossingNumbers);
+        return new bitset(maxBitsetSize, unionNumbers);
     }
 
     public bitset addition() {
-        List<Integer> crossingNumbers = new ArrayList<Integer>();
+        List<Integer> additionNumbers = new ArrayList<Integer>();
         for (int i = 0; i < bitsetSize; i++) {
             if (!bits.get(i)) {
-                crossingNumbers.add(i);
+                additionNumbers.add(i);
             }
         }
-        return new bitset(crossingNumbers.get(crossingNumbers.size() - 1), crossingNumbers);
+        return new bitset(bitsetSize, additionNumbers);
+    }
 
+    public boolean equals(bitset other) {
+        if (bitsetSize == other.getSize()) {
+            for (int i = 0; i < bitsetSize; i++) {
+                if (this.contains(i) != other.contains(i)) {
+                    return false;
+                }
+            }
+            return true;
+        }
+        return false;
     }
 }
