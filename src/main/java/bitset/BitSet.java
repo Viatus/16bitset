@@ -1,18 +1,9 @@
 package bitset;
-/*Вариант 16 -- BitSet
-Реализовать множество над заданным набором объектов. Количество элементов в наборе задается в конструкторе.
-Конкретный элемент набора идентифицируется неотрицательным целым от нуля до количества элементов - 1 (альтернатива -- уникальным именем).
-    Операции: пересечение, объединение, дополнение; добавление/удаление заданного элемента (массива элементов), проверка принадлежности элемента множеству.
-    Бонус: итератор по множеству.*/
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
 
 public class BitSet {
     private final static int ADDRESS_BITS_PER_WORD = 6;
-    private final static int BITS_PER_WORD = 1;
-    private final static int BIT_INDEX_MASK = BITS_PER_WORD - 1;
+    private final static int BITS_PER_WORD = 1 << ADDRESS_BITS_PER_WORD;
     private static final long WORD_MASK = 0xffffffffffffffffL;
 
     private long[] words;
@@ -37,19 +28,24 @@ public class BitSet {
         initWords(nbits);
     }
 
-    private BitSet(long[] words) {
+    public BitSet(long[] words) {
+        for (long word : words) {
+            if (word < 0 || word > 255) {
+                throw new IllegalArgumentException();
+            }
+        }
         this.words = words;
         this.wordsInUse = words.length;
     }
 
-    private void isInRange(int index) {
-        if (index < 0 || wordIndex(index) > wordsInUse) {
+    private void isInRange(int bitIndex) {
+        if (bitIndex < 0 || wordIndex(bitIndex) > words.length) {
             throw new IndexOutOfBoundsException();
         }
     }
 
     private void isInRange(int fromIndex, int toIndex) {
-        if (fromIndex < 0 || toIndex < fromIndex || wordIndex(toIndex) > wordsInUse) {
+        if (fromIndex < 0 || toIndex < fromIndex || wordIndex(toIndex) > words.length) {
             throw new IndexOutOfBoundsException();
         }
     }
@@ -58,22 +54,15 @@ public class BitSet {
         isInRange(bitIndex);
         int wordIndex = wordIndex(bitIndex);
         words[wordIndex] |= (1L << bitIndex);
+        if (wordIndex >= wordsInUse) {
+            wordsInUse = wordIndex + 1;
+        }
     }
 
     public void addMultiplicity(int fromIndex, int toIndex) {
         isInRange(fromIndex, toIndex);
-        int startWordIndex = wordIndex(fromIndex);
-        int endWordIndex = wordIndex(toIndex - 1);
-        long firstWordMask = WORD_MASK << fromIndex;
-        long lastWordMask = WORD_MASK >>> -toIndex;
-        if (startWordIndex == endWordIndex) {
-            words[startWordIndex] |= (firstWordMask & lastWordMask);
-        } else {
-            words[startWordIndex] |= firstWordMask;
-            for (int i = startWordIndex + 1; i < lastWordMask; i++) {
-                words[i] = WORD_MASK;
-            }
-            words[endWordIndex] = lastWordMask;
+        for (int i = fromIndex; i <= toIndex; i++) {
+            addElement(i);
         }
     }
 
@@ -81,29 +70,22 @@ public class BitSet {
         isInRange(bitIndex);
         int wordIndex = wordIndex(bitIndex);
         words[wordIndex] &= ~(1L << bitIndex);
+        recalculateWordsInUse();
     }
 
     public void deleteMultiplicity(int fromIndex, int toIndex) {
         isInRange(fromIndex, toIndex);
-        int startWordIndex = wordIndex(fromIndex);
-        int endWordIndex = wordIndex(toIndex - 1);
-        long firstWordMask = WORD_MASK << fromIndex;
-        long lastWordMask = WORD_MASK >>> -toIndex;
-        if (startWordIndex == endWordIndex) {
-            words[startWordIndex] &= ~(firstWordMask & lastWordMask);
-        } else {
-            words[startWordIndex] &= ~firstWordMask;
-            for (int i = startWordIndex + 1; i < lastWordMask; i++) {
-                words[i] = 0;
-            }
-            words[endWordIndex] &= ~lastWordMask;
+        for (int i = fromIndex; i <= toIndex; i++) {
+            deleteElement(i);
         }
     }
 
     public boolean contains(int bitIndex) {
-        isInRange(bitIndex);
+        if (bitIndex < 0 || wordIndex(bitIndex) > wordsInUse) {
+            return false;
+        }
         int wordIndex = wordIndex(bitIndex);
-        if (words[wordIndex] == (words[wordIndex] | ~(1L << bitIndex))) {
+        if ((words[wordIndex] & (1L << bitIndex)) != 0) {
             return true;
         }
         return false;
@@ -150,11 +132,16 @@ public class BitSet {
     }
 
     public BitSet addition() {
-        BitSet addtionBitSet = this;
-        for (int i = 0; i < wordsInUse; i++) {
-            words[i] = ~words[i];
+        /*BitSet additionBitSet = this;
+        int lastIndex = BITS_PER_WORD * words.length - 1;
+        long firstWordMask = WORD_MASK << 0;
+        long lastWordMask = WORD_MASK >>> -lastIndex;
+        additionBitSet.words[0] ^= firstWordMask;
+        for (long word : additionBitSet.words) {
+            word ^= WORD_MASK;
         }
-        return addtionBitSet;
+        additionBitSet.words[words.length - 1] ^= lastWordMask;
+        return additionBitSet;*/
     }
 
     public boolean equals(Object obj) {
@@ -174,4 +161,14 @@ public class BitSet {
         }
         return true;
     }
+
+    private void recalculateWordsInUse() {
+        int i;
+        for (i = wordsInUse - 1; i >= 0; i--)
+            if (words[i] != 0)
+                break;
+        wordsInUse = i + 1;
+    }
+
+
 }
