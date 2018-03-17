@@ -41,18 +41,20 @@ public class bitSetTest {
     @Test
     public void addition() {
         BitSet testBitset = new BitSet(5);
-        testBitset.addMultiplicity(0, 3);
+        testBitset.addMultiplicity(0, 2);
         BitSet resultBitset = new BitSet(5);
-        resultBitset.addElement(4);
-        assertTrue(resultBitset.equals(testBitset.addition()));
+        resultBitset.addMultiplicity(3,4);
+        testBitset = testBitset.addition();
+        assertTrue(resultBitset.equals(testBitset));
 
         testBitset = new BitSet(66);
         testBitset.addMultiplicity(0, 23);
         testBitset.addMultiplicity(36, 55);
-        resultBitset = new BitSet(40);
+        resultBitset = new BitSet(66);
         resultBitset.addMultiplicity(24, 35);
         resultBitset.addMultiplicity(56, 65);
-        assertTrue(resultBitset.equals(testBitset.addition()));
+        testBitset = testBitset.addition();
+        assertTrue(resultBitset.equals(testBitset));
 
     }
 
