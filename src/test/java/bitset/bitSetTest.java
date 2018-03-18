@@ -2,9 +2,6 @@ package bitset;
 
 import org.junit.Test;
 
-import java.util.Collections;
-import java.util.Arrays;
-
 import static org.junit.Assert.*;
 
 public class bitSetTest {
