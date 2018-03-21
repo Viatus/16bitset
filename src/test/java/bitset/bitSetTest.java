@@ -2,6 +2,7 @@ package bitset;
 
 import org.junit.Test;
 
+
 import static org.junit.Assert.*;
 
 public class bitSetTest {
@@ -100,7 +101,6 @@ public class bitSetTest {
         assertTrue(testBitset.contains(3));
         testBitset.deleteElement(3);
         assertFalse(testBitset.contains(3));
-        //long[] words = {255, 255, 255};
         testBitset = new BitSet(25);
         testBitset.addMultiplicity(3, 12);
         assertTrue(testBitset.contains(4) && testBitset.contains(5));

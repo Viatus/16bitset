@@ -4,7 +4,7 @@ package bitset;
 public class BitSet {
     private final static int ADDRESS_BITS_PER_WORD = 6;
     private final static int BITS_PER_WORD = 1 << ADDRESS_BITS_PER_WORD;
-    private static final long WORD_MASK = 0xffffffffffffffffL;
+
     /**
      * Поле количсевто битов
      */
@@ -13,10 +13,6 @@ public class BitSet {
      * Поле массив последовательностей битов, представленных в виде чисел типа long
      */
     private long[] words;
-    /**
-     * Поле количство последовательностей битов, имеющих хотя бы один ненулевой бит
-     */
-    private transient int wordsInUse = 0;
 
     /**
      * Функция получения номера последовательности по номеру бита
@@ -29,7 +25,7 @@ public class BitSet {
     }
 
     /**
-     * Функция создания массива последжовательностей битов по их количеству
+     * Функция создания массива последовательностей битов по их количеству
      *
      * @param nbits - количсетво битов
      */
@@ -51,7 +47,7 @@ public class BitSet {
      * @param nbits - количество битов
      */
     public BitSet(int nbits) {
-        if (nbits < 0) {
+        if (nbits <= 0) {
             throw new NegativeArraySizeException();
         }
         this.nbits = nbits;
@@ -64,9 +60,8 @@ public class BitSet {
      * @param words - последовательности битов
      */
     public BitSet(long[] words) {
-        this.words = words;
-        this.wordsInUse = words.length;
-        nbits = BITS_PER_WORD * (wordsInUse - 1) + (BITS_PER_WORD - Long.numberOfLeadingZeros(words[wordsInUse - 1]));
+        this.words = words.clone();
+        nbits = BITS_PER_WORD * (words.length - 1) + (BITS_PER_WORD - Long.numberOfLeadingZeros(words[words.length - 1]));
     }
 
     /**
@@ -75,10 +70,8 @@ public class BitSet {
      * @param bitIndex - номер бита
      * @throws IndexOutOfBoundsException - исключения, оповещающее о том, что данный номер бита не принадлежит последовательности
      */
-    private void isInRange(int bitIndex) {
-        if (bitIndex < 0 || wordIndex(bitIndex) > words.length) {
-            throw new IndexOutOfBoundsException();
-        }
+    private boolean isInRange(int bitIndex) {
+        return bitIndex >= 0 && wordIndex(bitIndex) < words.length;
     }
 
     /**
@@ -88,22 +81,23 @@ public class BitSet {
      * @param toIndex   - конечный номер последовательности
      * @throws IndexOutOfBoundsException - исключения, оповещающее о том, что хотя бы один из данных номеров бита не принадлежит последовательности
      */
-    private void isInRange(int fromIndex, int toIndex) {
-        if (fromIndex < 0 || toIndex < fromIndex || wordIndex(toIndex) > words.length) {
-            throw new IndexOutOfBoundsException();
-        }
+    private boolean isInRange(int fromIndex, int toIndex) {
+        return fromIndex >= 0 && toIndex > fromIndex && wordIndex(toIndex) < words.length;
     }
 
     /**
      * Функция добавления бита к BitSet
      *
      * @param bitIndex - номер бита
+     * @return - возвращает true, если бит установлен и false, если бит находится вне массива или уже имеет значение 1
      */
-    public void addElement(int bitIndex) {
-        isInRange(bitIndex);
+    public boolean addElement(int bitIndex) {
+        if (!isInRange(bitIndex) || contains(bitIndex)) {
+            return false;
+        }
         int wordIndex = wordIndex(bitIndex);
         words[wordIndex] |= (1L << bitIndex);
-        recalculateWordsInUse();
+        return true;
     }
 
     /**
@@ -112,23 +106,28 @@ public class BitSet {
      * @param fromIndex - начальный номер бита
      * @param toIndex   - конечный номер бита
      */
-    public void addMultiplicity(int fromIndex, int toIndex) {
-        isInRange(fromIndex, toIndex);
+    public boolean addMultiplicity(int fromIndex, int toIndex) {
+        if (!isInRange(fromIndex, toIndex)) {
+            return false;
+        }
         for (int i = fromIndex; i <= toIndex; i++) {
             addElement(i);
         }
+        return true;
     }
 
     /**
      * Функция удаления бита из BitSet
      *
      * @param bitIndex - номер бита
+     * @return - возвращает true, если бит удале и false, если бит находится вне массива или уже имеет значение 0
      */
-    public void deleteElement(int bitIndex) {
-        isInRange(bitIndex);
-        int wordIndex = wordIndex(bitIndex);
-        words[wordIndex] &= ~(1L << bitIndex);
-        recalculateWordsInUse();
+    public boolean deleteElement(int bitIndex) {
+        if (!isInRange(bitIndex) || !contains(bitIndex)) {
+            return false;
+        }
+        words[wordIndex(bitIndex)] &= ~(1L << bitIndex);
+        return true;
     }
 
     /**
@@ -137,11 +136,14 @@ public class BitSet {
      * @param fromIndex - начальный номер бита
      * @param toIndex   - конечный номер бита
      */
-    public void deleteMultiplicity(int fromIndex, int toIndex) {
-        isInRange(fromIndex, toIndex);
+    public boolean deleteMultiplicity(int fromIndex, int toIndex) {
+        if (!isInRange(fromIndex, toIndex)) {
+            return false;
+        }
         for (int i = fromIndex; i <= toIndex; i++) {
             deleteElement(i);
         }
+        return true;
     }
 
     /**
@@ -150,14 +152,52 @@ public class BitSet {
      * @param bitIndex - номер бита
      */
     public boolean contains(int bitIndex) {
-        if (bitIndex < 0 || wordIndex(bitIndex) > wordsInUse) {
+        if (!isInRange(bitIndex)) {
             return false;
         }
-        int wordIndex = wordIndex(bitIndex);
-        if ((words[wordIndex] & (1L << bitIndex)) != 0) {
-            return true;
+        return (words[wordIndex(bitIndex)] & (1L << bitIndex)) != 0;
+    }
+
+    /**
+     * Функция создания пересечения или объединения двух BitSet'ов
+     *
+     * @param first      - первый BitSet
+     * @param second     - второй BitSet
+     * @param isCrossing - переменная, отвечающая за выбор действий над BitSet
+     * @return - BitSet, являющимся пересечением или объединением данного и переданного в виде параметра BitSet'ов
+     */
+    private BitSet unionAndCrossingAssist(BitSet first, BitSet second, boolean isCrossing) {
+        if (first == second) {
+            return first;
         }
-        return false;
+        int wordsInCommon = Math.min(first.words.length, second.words.length);
+        BitSet main;
+        BitSet assist;
+        if (wordsInCommon == words.length) {
+            if (isCrossing) {
+                main = new BitSet(first.words);
+                assist = new BitSet(second.words);
+            } else {
+                main = new BitSet(second.words);
+                assist = new BitSet(first.words);
+            }
+        } else {
+            if (isCrossing) {
+                main = new BitSet(second.words);
+                assist = new BitSet(first.words);
+            } else {
+                main = new BitSet(first.words);
+                assist = new BitSet(second.words);
+            }
+        }
+        for (int i = 0; i < wordsInCommon; i++) {
+            if (isCrossing) {
+                main.words[i] &= assist.words[i];
+            } else {
+                main.words[i] |= assist.words[i];
+            }
+        }
+        return main;
     }
 
     /**
@@ -167,23 +207,7 @@ public class BitSet {
      * @return - BitSet, являющимся пересечением данного и переданного в виде параметра BitSet'ов
      */
     public BitSet crossing(BitSet other) {
-        if (this == other) {
-            return this;
-        }
-        int wordsInCommon = Math.min(wordsInUse, other.wordsInUse);
-        BitSet mainCrossing;
-        BitSet assistingCrossing;
-        if (wordsInCommon == wordsInUse) {
-            mainCrossing = new BitSet(this.words.clone());
-            assistingCrossing = new BitSet(other.words.clone());
-        } else {
-            mainCrossing = new BitSet(other.words.clone());
-            assistingCrossing = new BitSet(this.words.clone());
-        }
-        for (int i = 0; i < wordsInCommon; i++) {
-            mainCrossing.words[i] &= assistingCrossing.words[i];
-        }
-        return mainCrossing;
+        return unionAndCrossingAssist(this, other, true);
     }
 
     /**
@@ -193,23 +217,7 @@ public class BitSet {
      * @return - BitSet, являющимся объединением данного и переданного в виде параметра BitSet'ов
      */
     public BitSet union(BitSet other) {
-        if (this == other) {
-            return this;
-        }
-        int wordsInCommon = Math.min(wordsInUse, other.wordsInUse);
-        BitSet assistingUnion;
-        BitSet mainUnion;
-        if (wordsInCommon == wordsInUse) {
-            assistingUnion = new BitSet(this.words.clone());
-            mainUnion = new BitSet(other.words.clone());
-        } else {
-            assistingUnion = new BitSet(other.words.clone());
-            mainUnion = new BitSet(this.words.clone());
-        }
-        for (int i = 0; i < wordsInCommon; i++) {
-            mainUnion.words[i] |= assistingUnion.words[i];
-        }
-        return mainUnion;
+        return unionAndCrossingAssist(this, other, false);
     }
 
     /**
@@ -218,12 +226,12 @@ public class BitSet {
      * @return - BitSet, являющийся дополнением данного BitSet'а
      */
     public BitSet addition() {
-        BitSet additionBitSet = new BitSet(words.clone());
+        BitSet addition = new BitSet(words.clone());
         for (int bitIndex = 0; bitIndex < nbits; bitIndex++) {
             int wordIndex = wordIndex(bitIndex);
-            additionBitSet.words[wordIndex] ^= (1L << bitIndex);
+            addition.words[wordIndex] ^= (1L << bitIndex);
         }
-        return additionBitSet;
+        return addition;
     }
 
     /**
@@ -238,27 +246,15 @@ public class BitSet {
             return true;
         }
         BitSet other = (BitSet) obj;
-        if (wordsInUse != other.wordsInUse) {
+        if (this.words.length != other.words.length) {
             return false;
         }
-        for (int i = 0; i < wordsInUse; i++) {
+        for (int i = 0; i < words.length; i++) {
             if (words[i] != other.words[i]) {
                 return false;
             }
         }
         return true;
     }
-
-    /**
-     * Функция перерассчета последовательностей битов, имеющих хотя бы один ненулевой бит
-     */
-    private void recalculateWordsInUse() {
-        int i;
-        for (i = words.length - 1; i >= 0; i--)
-            if (words[i] != 0)
-                break;
-        wordsInUse = i + 1;
-    }
-
 
 }
